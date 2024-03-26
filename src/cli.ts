@@ -51,45 +51,40 @@ programCommand('createCollection', { requireWallet: true })
       }
     };
 
-    if (opts.collectionConfig) {
+    const updateArgsWithConfig = () => {
       const collectionConfig = JSON.parse(fs.readFileSync(opts.collectionConfig, 'utf-8')) as CollectionConfig;
       createCollectionArgs.royaltyEnforcementConfig = collectionConfig.royaltyEnforcementConfig;
       createCollectionArgs.name = collectionConfig.name;
       createCollectionArgs.uri = collectionConfig.uri;
-      const res = await oraPromise(createCollection(createCollectionArgs), {
-        text: 'Creating collection...',
-        spinner: 'dots',
-        failText: error('Failed to create collection'),
-        successText: success('Collection created'),
-      }
-      );
-      writeToFile(res, `collection-${res.address}.json`, {
-        writeToFile: opts.log,
+    };
+
+    const updateArgsWithCreators = () => {
+      const creators = opts.creators?.split(',').map((c) => {
+        const [address, percentage] = c.split(':');
+        return { address, percentage: parseInt(percentage) };
       });
-      return;
+      createCollectionArgs.royaltyEnforcementConfig = {
+        basisPoints: opts.sellerFeeBasisPoints,
+        creators,
+      };
+    };
+
+    if (opts.collectionConfig) {
+      updateArgsWithConfig();
+    } else if (opts.creators) {
+      updateArgsWithCreators();
     }
-    else {
-      if (opts.creators) {
-        const creators = opts.creators?.split(',').map((c) => {
-          const [address, percentage] = c.split(':');
-          return { address, percentage: parseInt(percentage) };
-        });
-        createCollectionArgs.royaltyEnforcementConfig = {
-          basisPoints: opts.sellerFeeBasisPoints,
-          creators,
-        };
-      }
-      const res = await oraPromise(createCollection(createCollectionArgs), {
-        text: 'Creating collection...',
-        spinner: 'dots',
-        failText: error('Failed to create collection'),
-        successText: success('Collection created'),
-      });
-      writeToFile(res, `collection-${res.address}.json`, {
-        writeToFile: opts.log,
-      });
-      return;
-    }
+
+    const res = await oraPromise(createCollection(createCollectionArgs), {
+      text: 'Creating collection...',
+      spinner: 'dots',
+      failText: error('Failed to create collection'),
+      successText: success('Collection created'),
+    });
+
+    writeToFile(res, `collection-${res.address}.json`, {
+      writeToFile: opts.log,
+    });
   });
 
   programCommand('createAsset', { requireWallet: true })

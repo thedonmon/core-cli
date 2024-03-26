@@ -118,30 +118,19 @@ export function createUmiWithSigner(keyPair: string | Uint8Array, rpcUrl?: strin
 }
 
 export function addCompute(umi: Umi, builder: TransactionBuilder, options: { price?: number; units?: number }) {
-  if (options.price && options.units && options.price > 0 && options.units > 0) {
+  if (options.price && options.price > 0) {
     builder = builder.add(
-        setComputeUnitPrice(umi, {
-            microLamports: options.price,
-          }),
-    ).add(
-        setComputeUnitLimit(umi, {
-            units: options.units
-        })
+      setComputeUnitPrice(umi, {
+        microLamports: options.price,
+      }),
     );
   }
-  if (options.price && options.price > 0 && !options.units) {
+  if (options.units && options.units > 0) {
     builder = builder.add(
-        setComputeUnitPrice(umi, {
-            microLamports: options.price,
-          }),
+      setComputeUnitLimit(umi, {
+        units: options.units,
+      }),
     );
-  }
-  if (!options.price && options.units && options.units > 0) {
-    builder = builder.add(
-        setComputeUnitLimit(umi, {
-            units: options.units,
-          }),
-    )
   }
   return builder;
 }
