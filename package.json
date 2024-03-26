@@ -1,0 +1,35 @@
+{
+  "name": "core-cli",
+  "version": "1.0.0",
+  "description": "CLI for interacting with Metaplex Core Assets",
+  "main": "index.js",
+  "author": "0xDon",
+  "license": "MIT",
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.540.0",
+    "@commander-js/extra-typings": "^12.0.1",
+    "@inquirer/prompts": "^4.3.0",
+    "@metaplex-foundation/mpl-core": "^0.2.0",
+    "@metaplex-foundation/mpl-toolbox": "^0.9.4",
+    "@metaplex-foundation/umi": "^0.9.1",
+    "@metaplex-foundation/umi-bundle-defaults": "^0.9.1",
+    "@metaplex-foundation/umi-uploader-aws": "^0.9.1",
+    "@metaplex-foundation/umi-uploader-irys": "^0.9.1",
+    "@metaplex-foundation/umi-uploader-nft-storage": "^0.9.1",
+    "@solana/spl-token": "^0.4.3",
+    "@solana/web3.js": "^1.91.1",
+    "bignumber.js": "^9.1.2",
+    "bn.js": "^5.2.1",
+    "bs58": "^5.0.0",
+    "chalk": "^5.3.0",
+    "commander": "^12.0.0",
+    "dotenv": "^16.4.5",
+    "ora": "^8.0.1"
+  },
+  "devDependencies": {
+    "@types/bn.js": "^5.1.5",
+    "@types/node": "^20.11.30",
+    "tsx": "^4.7.1",
+    "typescript": "^5.4.3"
+  }
+}
