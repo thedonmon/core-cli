@@ -1,0 +1,20 @@
+{
+    "name": "My Collection",
+    "uri": "ipfs://<CID>",
+    "sellerFeeBasisPoints": 500,
+    "royaltyEnforcementConfig": {
+        "basisPoints": 500,
+        "creators": [
+            {
+                "address": "<ADDRESS>",
+                "percentage": 50
+            },
+            {
+                "address": "<ADDRESS>",
+                "percentage": 50
+            }
+        ],
+        "authority": "<OPTIONAL ADDRESS>"
+    }
+}
+

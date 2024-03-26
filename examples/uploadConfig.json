@@ -1,0 +1,27 @@
+{
+  "irysUploaderOptions": {
+    "address": "0x123456789abcdef (optional)",
+    "timeout": 3000,
+    "providerUrl": "https://provider.example.com (optional)",
+    "priceMultiplier": 1.2,
+    "payer": "0xfedcba987654321 (optional)"
+  },
+  "awsUploaderOptions": {
+    "clientConfig": {
+      "region": "us-west-2 (required)",
+      "credentials": {
+        "accessKeyId": "AKIAIOSFODNN7EXAMPLE (required)",
+        "secretAccessKey": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY (required)"
+      }
+    },
+    "bucketName": "my-uploads-bucket (required)"
+  },
+  "nftStorageUploaderOptions": {
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9... (required)",
+    "endpoint": "https://api.nft.storage (optional)",
+    "gatewayHost": "https://nftstorage.link (optional)",
+    "batchSize": 10,
+    "useGatewayUrls": true,
+    "payer": "0xabcdef123456789 (optional)"
+  }
+}

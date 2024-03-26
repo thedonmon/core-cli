@@ -12,9 +12,10 @@ import {
 } from '@solana/web3.js';
 import { confirm } from '@inquirer/prompts';
 import { loadWalletKey, writeToFile } from '@lib/helpers';
-import { CreateAssetRequest, CreateCollectionRequest } from './types/request';
+import { CreateAssetRequest, CreateAssetUploadRequest, CreateCollectionRequest, CreateCollectionUploadRequest } from './types/request';
 import { CollectionConfig } from './types/config';
-import { createAsset, createCollection } from './lib/manageAssets';
+import { createAsset, createAssetUpload, createCollection, createCollectionUpload } from './lib/manageAssets';
+import { UploaderOptions } from './types/storage';
 
 const error = chalk.bold.red;
 const success = chalk.bold.greenBright;
@@ -37,6 +38,8 @@ programCommand('createCollection', { requireWallet: true })
   .addOption(new Option('-ex, --externalUrl <string>', 'External JSON URL with metadata'))
   .addOption(new Option('-cts, --creators <string>', 'Creators <address>:<percentage> comma separated'))
   .addOption(new Option('-cf, --collectionConfig <path>', 'Collection config path'))
+  .addOption(new Option('-upc, --uploadConfig <path>', 'Uploader config path'))
+  .addOption(new Option('-up, --uploadPath <path>', 'Upload file path'))
   .action(async (opts) => {
     const keypair = loadWalletKey(opts.keypair);
     let createCollectionArgs: CreateCollectionRequest = {
@@ -51,40 +54,79 @@ programCommand('createCollection', { requireWallet: true })
       }
     };
 
-    const updateArgsWithConfig = () => {
-      const collectionConfig = JSON.parse(fs.readFileSync(opts.collectionConfig, 'utf-8')) as CollectionConfig;
-      createCollectionArgs.royaltyEnforcementConfig = collectionConfig.royaltyEnforcementConfig;
-      createCollectionArgs.name = collectionConfig.name;
-      createCollectionArgs.uri = collectionConfig.uri;
-    };
-
-    const updateArgsWithCreators = () => {
-      const creators = opts.creators?.split(',').map((c) => {
-        const [address, percentage] = c.split(':');
-        return { address, percentage: parseInt(percentage) };
-      });
-      createCollectionArgs.royaltyEnforcementConfig = {
-        basisPoints: opts.sellerFeeBasisPoints,
-        creators,
+    if (opts.uploadPath && opts.uploadConfig) {
+      const uploaderOptions = JSON.parse(fs.readFileSync(opts.uploadConfig, 'utf-8')) as UploaderOptions;
+      if (!uploaderOptions) {
+        throw new Error('Invalid uploader config');
+      }
+      if (opts.collectionConfig) {
+        const collectionConfig = JSON.parse(fs.readFileSync(opts.collectionConfig, 'utf-8')) as CollectionConfig;
+        if (!collectionConfig) {
+          throw new Error('Invalid collection config');
+        }
+        createCollectionArgs.royaltyEnforcementConfig = collectionConfig.royaltyEnforcementConfig;
+        createCollectionArgs.name = collectionConfig.name;
+        // Note: URI is ignored as we are uploading
+      }
+      const createCollectionUploadArgs: CreateCollectionUploadRequest = {
+        ...createCollectionArgs,
+        uploadRequest: {
+          fileName: path.basename(opts.uploadPath),
+          filePath: opts.uploadPath,
+        }
       };
-    };
+      const res = await oraPromise(createCollectionUpload(createCollectionUploadArgs, uploaderOptions), {
+        text: 'Creating collection with upload...',
+        spinner: 'dots',
+        failText: error('Failed to create collection with upload'),
+        successText: success('Collection with upload created'),
+      });
 
-    if (opts.collectionConfig) {
-      updateArgsWithConfig();
-    } else if (opts.creators) {
-      updateArgsWithCreators();
+      writeToFile(res, `collection-${res.address}.json`, {
+        writeToFile: opts.log,
+      });
+    } else {
+      if (!opts.externalUrl) {
+        throw new Error('External URL is required when not using an uploader');
+      }
+      const updateArgsWithConfig = () => {
+        const collectionConfig = JSON.parse(fs.readFileSync(opts.collectionConfig, 'utf-8')) as CollectionConfig;
+        if (!collectionConfig) {
+          throw new Error('Invalid collection config');
+        }
+        createCollectionArgs.royaltyEnforcementConfig = collectionConfig.royaltyEnforcementConfig;
+        createCollectionArgs.name = collectionConfig.name;
+        createCollectionArgs.uri = collectionConfig.uri;
+      };
+
+      const updateArgsWithCreators = () => {
+        const creators = opts.creators?.split(',').map((c) => {
+          const [address, percentage] = c.split(':');
+          return { address, percentage: parseInt(percentage) };
+        });
+        createCollectionArgs.royaltyEnforcementConfig = {
+          basisPoints: opts.sellerFeeBasisPoints,
+          creators,
+        };
+      };
+
+      if (opts.collectionConfig) {
+        updateArgsWithConfig();
+      } else if (opts.creators) {
+        updateArgsWithCreators();
+      }
+
+      const res = await oraPromise(createCollection(createCollectionArgs), {
+        text: 'Creating collection...',
+        spinner: 'dots',
+        failText: error('Failed to create collection'),
+        successText: success('Collection created'),
+      });
+
+      writeToFile(res, `collection-${res.address}.json`, {
+        writeToFile: opts.log,
+      });
     }
-
-    const res = await oraPromise(createCollection(createCollectionArgs), {
-      text: 'Creating collection...',
-      spinner: 'dots',
-      failText: error('Failed to create collection'),
-      successText: success('Collection created'),
-    });
-
-    writeToFile(res, `collection-${res.address}.json`, {
-      writeToFile: opts.log,
-    });
   });
 
   programCommand('createAsset', { requireWallet: true })
@@ -92,8 +134,39 @@ programCommand('createCollection', { requireWallet: true })
   .addOption(new Option('-n, --name <string>', 'Asset name').makeOptionMandatory())
   .addOption(new Option('-ex, --externalUrl <string>', 'External JSON URL with metadata'))
   .addOption(new Option('-cc, --collection <string>', 'Collection address'))
+  .addOption(new Option('-up, --uploadPath <path>', 'Uploader config path'))
   .action(async (opts) => {
     const keypair = loadWalletKey(opts.keypair);
+    if (opts.uploadPath) {
+      const uploaderConfig = JSON.parse(fs.readFileSync(opts.uploadPath, 'utf-8'));
+      const createAssetUploadRequest: CreateAssetUploadRequest = {
+        keyPair: keypair.secretKey,
+        rpcUrl: opts.rpc,
+        env: opts.env,
+        name: opts.name,
+        collectionAddress: opts.collection,
+        compute: {
+          price: opts.computePrice,
+          units: opts.computeLimit,
+        },
+        uploadRequest: {
+          filePath: opts.externalUrl, // Assuming the externalUrl is the path to the file to be uploaded
+          fileName: path.basename(opts.externalUrl),
+        },
+      };
+      const res = await oraPromise(createAssetUpload(createAssetUploadRequest, uploaderConfig), {
+        text: 'Creating asset with upload...',
+        spinner: 'dots',
+        failText: error('Failed to create asset with upload'),
+        successText: success('Asset with upload created'),
+      });
+      writeToFile(res, `asset-${res.address}.json`, {
+        writeToFile: opts.log,
+      });
+    } else {
+      if (!opts.externalUrl) {
+        throw new Error('External URL is required when not using an uploader');
+      }
       const createAssetRequest: CreateAssetRequest = {
         keyPair: keypair.secretKey,
         rpcUrl: opts.rpc,
@@ -117,7 +190,8 @@ programCommand('createCollection', { requireWallet: true })
       writeToFile(res, `asset-${res.address}.json`, {
         writeToFile: opts.log,
       });
-      return;
+    }
+    return;
   });
 
 

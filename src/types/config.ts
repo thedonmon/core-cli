@@ -2,7 +2,7 @@ import { Creator } from "./models";
 
 export type CollectionConfig = {
     name: string;
-    uri: string;
+    uri?: string;
     royaltyEnforcementConfig?: RoyaltyEnforcementConfig;
 }
 
