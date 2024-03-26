@@ -5,6 +5,9 @@
   "main": "index.js",
   "author": "0xDon",
   "license": "MIT",
+  "scripts": {
+    "cli": "tsx src/cli.ts"
+  },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.540.0",
     "@commander-js/extra-typings": "^12.0.1",
