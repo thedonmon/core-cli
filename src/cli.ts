@@ -12,10 +12,11 @@ import {
 } from '@solana/web3.js';
 import { confirm } from '@inquirer/prompts';
 import { loadWalletKey, writeToFile } from '@lib/helpers';
-import { CreateAssetRequest, CreateAssetUploadRequest, CreateCollectionRequest, CreateCollectionUploadRequest } from './types/request';
+import { CreateAssetRequest, CreateAssetUploadRequest, CreateCollectionRequest, CreateCollectionUploadRequest, UploadRequest } from './types/request';
 import { CollectionConfig } from './types/config';
 import { createAsset, createAssetUpload, createCollection, createCollectionUpload } from './lib/manageAssets';
 import { UploaderOptions } from './types/storage';
+import { bulkUploadFiles } from './lib/uploadFiles';
 
 const error = chalk.bold.red;
 const success = chalk.bold.greenBright;
@@ -39,7 +40,7 @@ programCommand('createCollection', { requireWallet: true })
   .addOption(new Option('-cts, --creators <string>', 'Creators <address>:<percentage> comma separated'))
   .addOption(new Option('-cf, --collectionConfig <path>', 'Collection config path'))
   .addOption(new Option('-upc, --uploadConfig <path>', 'Uploader config path'))
-  .addOption(new Option('-up, --uploadPath <path>', 'Upload file path'))
+  .addOption(new Option('-up, --uploadPath <path>', 'File to upload path'))
   .action(async (opts) => {
     const keypair = loadWalletKey(opts.keypair);
     let createCollectionArgs: CreateCollectionRequest = {
@@ -78,7 +79,7 @@ programCommand('createCollection', { requireWallet: true })
       const res = await oraPromise(createCollectionUpload(createCollectionUploadArgs, uploaderOptions), {
         text: 'Creating collection with upload...',
         spinner: 'dots',
-        failText: error('Failed to create collection with upload'),
+        failText: (e) => error(`Failed to create collection with upload: ${e}`),
         successText: success('Collection with upload created'),
       });
 
@@ -119,7 +120,7 @@ programCommand('createCollection', { requireWallet: true })
       const res = await oraPromise(createCollection(createCollectionArgs), {
         text: 'Creating collection...',
         spinner: 'dots',
-        failText: error('Failed to create collection'),
+        failText: (e) => error(`Failed to create collection: ${e}`),
         successText: success('Collection created'),
       });
 
@@ -129,16 +130,20 @@ programCommand('createCollection', { requireWallet: true })
     }
   });
 
-  programCommand('createAsset', { requireWallet: true })
+programCommand('createAsset', { requireWallet: true })
   .description('Create a new Asset')
   .addOption(new Option('-n, --name <string>', 'Asset name').makeOptionMandatory())
   .addOption(new Option('-ex, --externalUrl <string>', 'External JSON URL with metadata'))
   .addOption(new Option('-cc, --collection <string>', 'Collection address'))
-  .addOption(new Option('-up, --uploadPath <path>', 'Uploader config path'))
+  .addOption(new Option('-upc, --uploadConfig <path>', 'Uploader config path'))
+  .addOption(new Option('-up, --uploadPath <path>', 'File to upload path'))
   .action(async (opts) => {
     const keypair = loadWalletKey(opts.keypair);
-    if (opts.uploadPath) {
-      const uploaderConfig = JSON.parse(fs.readFileSync(opts.uploadPath, 'utf-8'));
+    if (opts.uploadConfig) {
+      const uploaderConfig = JSON.parse(fs.readFileSync(opts.uploadConfig, 'utf-8')) as UploaderOptions;
+      if (!uploaderConfig) {
+        throw new Error('Invalid uploader config');
+      }
       const createAssetUploadRequest: CreateAssetUploadRequest = {
         keyPair: keypair.secretKey,
         rpcUrl: opts.rpc,
@@ -150,14 +155,14 @@ programCommand('createCollection', { requireWallet: true })
           units: opts.computeLimit,
         },
         uploadRequest: {
-          filePath: opts.externalUrl, // Assuming the externalUrl is the path to the file to be uploaded
-          fileName: path.basename(opts.externalUrl),
+          filePath: opts.uploadPath,
+          fileName: path.basename(opts.uploadPath),
         },
       };
       const res = await oraPromise(createAssetUpload(createAssetUploadRequest, uploaderConfig), {
         text: 'Creating asset with upload...',
         spinner: 'dots',
-        failText: error('Failed to create asset with upload'),
+        failText: (e) => error(`Failed to create asset with upload: ${e}`),
         successText: success('Asset with upload created'),
       });
       writeToFile(res, `asset-${res.address}.json`, {
@@ -184,7 +189,7 @@ programCommand('createCollection', { requireWallet: true })
       const res = await oraPromise(createAsset(createAssetRequest), {
         text: 'Creating asset...',
         spinner: 'dots',
-        failText: error('Failed to create asset'),
+        failText: (e) => error(`Failed to create asset: ${e}`),
         successText: success('Asset created'),
       });
       writeToFile(res, `asset-${res.address}.json`, {
@@ -192,6 +197,31 @@ programCommand('createCollection', { requireWallet: true })
       });
     }
     return;
+  });
+
+programCommand('bulkUpload', { requireWallet: true })
+  .description('Bulk upload files')
+  .addOption(new Option('-upc, --uploadConfig <path>', 'Uploader config path'))
+  .addOption(new Option('-up, --uploadPaths <path>', 'Files to upload path using uploadFilesConfig'))
+  .action(async (opts) => {
+    const keypair = loadWalletKey(opts.keypair);
+    const uploaderConfig = JSON.parse(fs.readFileSync(opts.uploadConfig, 'utf-8')) as UploaderOptions;
+    if (!uploaderConfig) {
+      throw new Error('Invalid uploader config');
+    }
+    const uploadPaths = JSON.parse(fs.readFileSync(opts.uploadPaths, 'utf-8')) as UploadRequest[];
+    if (!uploadPaths) {
+      throw new Error('Invalid upload paths config');
+    }
+    const results = await oraPromise(bulkUploadFiles(uploaderConfig, uploadPaths, keypair.secretKey, opts.rpc, opts.env), {
+      text: `Uploading ${uploadPaths.length} files...`,
+      spinner: 'dots',
+      failText: (e) => error(`Failed to upload files: ${e}`),
+      successText: success(`Files uploaded!`),
+    });
+    writeToFile(results, `bulk-upload-${new Date()}.json`, {
+      writeToFile: opts.log,
+    });
   });
 
 

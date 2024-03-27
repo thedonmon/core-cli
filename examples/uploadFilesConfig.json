@@ -1,0 +1,12 @@
+[
+    {
+        "fileUrl": "https://arweave.net/download/file.pdf",
+        "type": "application/pdf"
+    },
+    {
+        "filePath": "User/Downloads/file.pdf",
+        "type": "application/pdf",
+        "fileName": "file.pdf"
+    }
+]
+

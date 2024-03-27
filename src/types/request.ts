@@ -28,8 +28,10 @@ export type CreateCollectionUploadRequest = {
 
 export type UploadRequest = {
     filePath?: string;
+    fileUrl?: string;
+    type?: string;
     buffer?: Buffer;
-    fileName: string;
+    fileName?: string;
 }
 
 export type CreateAssetRequest = {
@@ -40,4 +42,5 @@ export type CreateAssetRequest = {
 export type CreateAssetUploadRequest = {
     name: string;
     uploadRequest: UploadRequest;
+    additionalUploads?: UploadRequest[];
 } & Omit<CreateAssetRequest, 'metadata'>;
