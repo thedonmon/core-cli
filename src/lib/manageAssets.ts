@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as bs58 from 'bs58';
-import { createCollectionV2, ruleSet, PluginAuthorityPairHelperArgs, BasePluginAuthority, createV2 } from '@metaplex-foundation/mpl-core';
+import { createCollectionV2, ruleSet, BasePluginAuthority, createV2 } from '@metaplex-foundation/mpl-core';
 import { createGenericFile, generateSigner, publicKey, Signer, Umi } from '@metaplex-foundation/umi';
 import { BaseRequest, CreateAssetRequest, CreateAssetUploadRequest, CreateCollectionRequest, CreateCollectionUploadRequest } from '@/types/request';
 import { BaseResponse } from '@/types/response';
@@ -73,7 +73,7 @@ async function createCollectionCommon(request: {
         __kind: 'Address',
         address: request.royaltyEnforcementConfig.authority ? publicKey(request.royaltyEnforcementConfig.authority) : request.signer.publicKey
     }
-    
+
     let builder = createCollectionV2(umi, {
         collection: mintSigner,
         name: request.name,
