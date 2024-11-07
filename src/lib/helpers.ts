@@ -1,7 +1,7 @@
 import { mplCore } from '@metaplex-foundation/mpl-core';
 import { createUmi } from '@metaplex-foundation/umi-bundle-defaults';
-import { createSignerFromKeypair, Signer, signerIdentity, TransactionBuilder, Umi } from '@metaplex-foundation/umi';
-import { Cluster, clusterApiUrl, Keypair } from '@solana/web3.js';
+import { createSignerFromKeypair, Signer, signerIdentity, TransactionBuilder, Umi, Keypair as UmiKeypair} from '@metaplex-foundation/umi';
+import { Cluster, clusterApiUrl, Connection, Keypair } from '@solana/web3.js';
 import BigNumber from 'bignumber.js';
 import * as BN from 'bn.js';
 import * as bs58 from 'bs58';
@@ -12,6 +12,9 @@ import { createS3Client, UploaderOptions } from '@/types/storage';
 import { awsUploader } from '@metaplex-foundation/umi-uploader-aws';
 import { irysUploader } from '@metaplex-foundation/umi-uploader-irys';
 import { nftStorageUploader } from '@metaplex-foundation/umi-uploader-nft-storage';
+import { shdwUploader } from './shdw';
+import { ShdwDrive } from '@shadow-drive/sdk';
+import NodeWallet from './wallet/wallet';
 
 export function extractSecret(keyPair: string | Uint8Array) {
   if (typeof keyPair === 'string') {
@@ -126,7 +129,7 @@ export function createUmiWithSigner(keyPair: string | Uint8Array, rpcUrl?: strin
   const umiKeypair = umi.eddsa.createKeypairFromSecretKey(payerKey);
   const signer = createSignerFromKeypair({ eddsa: umi.eddsa }, umiKeypair);
   umi.use(signerIdentity(signer));
-  return { umi, signer };
+  return { umi, signer, umiKeypair };
 }
 
 export function addCompute(umi: Umi, builder: TransactionBuilder, options: { price?: number; units?: number }) {
@@ -155,29 +158,46 @@ export function getUmiSignerFromKeypair(keyPair: string | Uint8Array, rpcUrl?: s
   return signer;
 }
 
-export function addUploader(umi: Umi, uploader: UploaderOptions) {
-let payer: Signer | undefined;
-  if (uploader.awsUploaderOptions) {
-    umi.use(awsUploader(createS3Client(uploader.awsUploaderOptions.clientConfig), uploader.awsUploaderOptions.bucketName));
-} else if (uploader.irysUploaderOptions || uploader.nftStorageUploaderOptions) {
-    if (uploader.irysUploaderOptions) {
-        if (uploader.irysUploaderOptions.payer) {
-            payer = getUmiSignerFromKeypair(uploader.irysUploaderOptions.payer);
+export async function addUploader(umi: Umi, uploader: UploaderOptions, keyPair: UmiKeypair) {
+    let payer: Signer | undefined;
+    let keypair: Uint8Array;
+    if (uploader.awsUploaderOptions) {
+        umi.use(awsUploader(createS3Client(uploader.awsUploaderOptions.clientConfig), uploader.awsUploaderOptions.bucketName));
+    } else if (uploader.shdwUploaderOptions) {
+        if (uploader.shdwUploaderOptions.payer) {
+            payer = getUmiSignerFromKeypair(uploader.shdwUploaderOptions.payer);
+            keypair = extractSecret(uploader.shdwUploaderOptions.payer);
         }
-        const { payer: _, ...irysOptionsWithoutPayer } = uploader.irysUploaderOptions;
-        umi.use(irysUploader({payer, ...irysOptionsWithoutPayer}));
-    } else if (uploader.nftStorageUploaderOptions) {
-        if (!uploader.nftStorageUploaderOptions.token) {
-            throw new Error('NFT Storage token is required');
+        else {
+          keypair = keyPair.secretKey;
         }
-        if (uploader.nftStorageUploaderOptions.payer) {
-            payer = getUmiSignerFromKeypair(uploader.nftStorageUploaderOptions.payer);
+        const connection = new Connection(
+          umi.rpc.getEndpoint(),
+          "confirmed"
+        );
+        const wallet = NodeWallet.local(keypair);
+        const drive = await new ShdwDrive(connection, wallet).init();
+        const { payer: _, ...shdwOptionsWithoutPayer } = uploader.shdwUploaderOptions;
+        umi.use(shdwUploader(drive, shdwOptionsWithoutPayer));
+    } else if (uploader.irysUploaderOptions || uploader.nftStorageUploaderOptions) {
+        if (uploader.irysUploaderOptions) {
+            if (uploader.irysUploaderOptions.payer) {
+                payer = getUmiSignerFromKeypair(uploader.irysUploaderOptions.payer);
+            }
+            const { payer: _, ...irysOptionsWithoutPayer } = uploader.irysUploaderOptions;
+            umi.use(irysUploader({payer, ...irysOptionsWithoutPayer}));
+        } else if (uploader.nftStorageUploaderOptions) {
+            if (!uploader.nftStorageUploaderOptions.token) {
+                throw new Error('NFT Storage token is required');
+            }
+            if (uploader.nftStorageUploaderOptions.payer) {
+                payer = getUmiSignerFromKeypair(uploader.nftStorageUploaderOptions.payer);
+            }
+            const { payer: _, endpoint, ...nftStorageOptionsWithoutPayer } = uploader.nftStorageUploaderOptions;
+            umi.use(nftStorageUploader({payer, endpoint: endpoint ? new URL(endpoint) : undefined, ...nftStorageOptionsWithoutPayer}));
         }
-        const { payer: _, endpoint, ...nftStorageOptionsWithoutPayer } = uploader.nftStorageUploaderOptions;
-        umi.use(nftStorageUploader({payer, endpoint: endpoint ? new URL(endpoint) : undefined, ...nftStorageOptionsWithoutPayer}));
+    } else {
+        throw new Error('No uploader selected');
     }
-} else {
-    throw new Error('No uploader selected');
-}
-return umi;
+    return umi;
 }

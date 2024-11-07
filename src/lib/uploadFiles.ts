@@ -17,8 +17,8 @@ export async function bulkUploadFiles(config: UploaderOptions, files: UploadRequ
         error: string;
     }[]
 }> {
-    let { umi, signer } = createUmiWithSigner(keyPair, rpcUrl, env);
-    umi = addUploader(umi, config);
+    let { umi, signer, umiKeypair } = createUmiWithSigner(keyPair, rpcUrl, env);
+    umi = await addUploader(umi, config, umiKeypair);
 
     const uploaded: {
         fileUrl: string;

@@ -72,12 +72,36 @@ interface NftStorageUploaderOptions {
 }
 
 /**
+ * Options for the SHDW Drive uploader.
+ */
+interface ShdwUploaderOptions {
+    /** (Optional) Storage account identifier */
+    storageAccount?: string;
+
+    /** (Optional) Whether to create a storage account if it doesn't exist */
+    createStorageAccountIfNotExist?: boolean;
+
+    /** (Optional) Number of concurrent uploads */
+    concurrentUploads?: number;
+
+    /** (Optional) Whether to overwrite existing files */
+    overwriteExistingFiles?: boolean;
+
+    /** (Optional) Default storage size in GB */
+    defaultStorageSize?: number;
+
+    /** (Optional) Payer for the SHDW uploader. Should be path to keypair if its separate from payer */
+    payer?: string;
+}
+
+/**
  * Union type of all uploader options. Only one needs to be provided.
  */
 export type UploaderOptions = {
     irysUploaderOptions?: IrysUploaderOptions;
     awsUploaderOptions?: AwsUploaderOptions;
     nftStorageUploaderOptions?: NftStorageUploaderOptions;
+    shdwUploaderOptions?: ShdwUploaderOptions;
 };
 
 

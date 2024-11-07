@@ -26,8 +26,8 @@ export async function createCollection(options: CreateCollectionRequest): Promis
 
 export async function createCollectionUpload(options: CreateCollectionUploadRequest, uploader: UploaderOptions): Promise<BaseResponse> {
     const { keyPair, rpcUrl, env } = options;
-    let { umi, signer } = createUmiWithSigner(keyPair, rpcUrl, env);
-    umi = addUploader(umi, uploader);
+    let { umi, signer, umiKeypair } = createUmiWithSigner(keyPair, rpcUrl, env);
+    umi = await addUploader(umi, uploader, umiKeypair);
     let uploadedUri: string;
     if (options.uploadRequest.filePath && !options.uploadRequest.buffer) {
         options.uploadRequest.buffer = fs.readFileSync(options.uploadRequest.filePath);
@@ -134,8 +134,8 @@ export async function createAsset(options: CreateAssetRequest): Promise<BaseResp
 
 export async function createAssetUpload(options: CreateAssetUploadRequest, uploader: UploaderOptions): Promise<BaseResponse> {
     const { keyPair, rpcUrl, env } = options;
-    let { umi, signer } = createUmiWithSigner(keyPair, rpcUrl, env);
-    umi = addUploader(umi, uploader);
+    let { umi, signer, umiKeypair } = createUmiWithSigner(keyPair, rpcUrl, env);
+    umi = await addUploader(umi, uploader, umiKeypair);
     let uploadedUri: string;
     if (options.uploadRequest.filePath && !options.uploadRequest.buffer) {
         options.uploadRequest.buffer = fs.readFileSync(options.uploadRequest.filePath);

@@ -3,14 +3,6 @@ import ora, { oraPromise } from 'ora';
 import { Command, Option } from '@commander-js/extra-typings';
 import * as fs from 'fs';
 import * as path from 'path';
-import {
-  Cluster,
-  Connection,
-  PublicKey,
-  VersionedTransaction,
-  clusterApiUrl,
-} from '@solana/web3.js';
-import { confirm } from '@inquirer/prompts';
 import { loadWalletKey, writeToFile } from '@lib/helpers';
 import { CreateAssetRequest, CreateAssetUploadRequest, CreateCollectionRequest, CreateCollectionUploadRequest, UploadRequest } from './types/request';
 import { CollectionConfig } from './types/config';
