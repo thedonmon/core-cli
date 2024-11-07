@@ -17,6 +17,7 @@ import { CollectionConfig } from './types/config';
 import { createAsset, createAssetUpload, createCollection, createCollectionUpload } from './lib/manageAssets';
 import { UploaderOptions } from './types/storage';
 import { bulkUploadFiles } from './lib/uploadFiles';
+import { fileTypeFromFile } from 'file-type';
 
 const error = chalk.bold.red;
 const success = chalk.bold.greenBright;
@@ -219,9 +220,36 @@ programCommand('bulkUpload', { requireWallet: true })
       failText: (e) => error(`Failed to upload files: ${e}`),
       successText: success(`Files uploaded!`),
     });
-    writeToFile(results, `bulk-upload-${new Date()}.json`, {
+    writeToFile(results, `bulk-upload-${new Date().getTime()}.json`, {
       writeToFile: opts.log,
     });
+  });
+
+programCommand('generateUploadConfig', { requireWallet: false })
+  .description('Generate upload config from a folder path')
+  .addOption(new Option('-fp, --folderPath <path>', 'Folder path to generate upload config'))
+  .action(async (opts) => {
+    const folderPath = opts.folderPath;
+    if (!fs.existsSync(folderPath)) {
+      throw new Error('Folder path does not exist');
+    }
+    ora().info(`Generating upload config from folder: ${folderPath}`);
+    const files = fs.readdirSync(folderPath);
+    const uploadRequests: UploadRequest[] = await Promise.all(files.map(async (file) => {
+      const filePath = path.join(folderPath, file);
+      const fileTypeResult = await fileTypeFromFile(filePath);
+      const mimeType = fileTypeResult?.mime;
+      const fileType = mimeType || 'image/png';
+      return {
+        filePath,
+        type: fileType,
+        fileName: file,
+      };
+    }));
+    writeToFile(uploadRequests, `uploadFilesConfig-${new Date().getTime()}.json`, {
+      writeToFile: opts.log,
+    });
+    ora().succeed(`Upload config generated with ${uploadRequests.length} files`);
   });
 
 
