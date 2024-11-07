@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as bs58 from 'bs58';
-import { createV1, createPlugin, createCollectionV1, ruleSet, pluginAuthority, addressPluginAuthority } from '@metaplex-foundation/mpl-core';
+import { createCollectionV2, ruleSet, PluginAuthorityPairHelperArgs, BasePluginAuthority, createV2 } from '@metaplex-foundation/mpl-core';
 import { createGenericFile, generateSigner, publicKey, Signer, Umi } from '@metaplex-foundation/umi';
 import { BaseRequest, CreateAssetRequest, CreateAssetUploadRequest, CreateCollectionRequest, CreateCollectionUploadRequest } from '@/types/request';
 import { BaseResponse } from '@/types/response';
@@ -68,27 +68,33 @@ async function createCollectionCommon(request: {
 }): Promise<BaseResponse> {
     const umi = request.umi;
     const mintSigner = generateSigner(umi);
-    let builder = createCollectionV1(umi, {
+
+    const authorityPlugin: BasePluginAuthority = {
+        __kind: 'Address',
+        address: request.royaltyEnforcementConfig.authority ? publicKey(request.royaltyEnforcementConfig.authority) : request.signer.publicKey
+    }
+    
+    let builder = createCollectionV2(umi, {
         collection: mintSigner,
         name: request.name,
         uri: request.uri,
         payer: request.signer,
         plugins: request.royaltyEnforcementConfig ? [
             {
-                plugin: createPlugin({
-                    type: 'Royalties',
-                    data: {
+                plugin: {
+                    __kind: 'Royalties',
+                    fields: [{
                         basisPoints: request.royaltyEnforcementConfig.basisPoints,
                         creators: request.royaltyEnforcementConfig.creators.map(creator => ({
                             address: publicKey(creator.address),
                             percentage: creator.percentage
                         })),
                         ruleSet: ruleSet('None')
-                    }
-                }),
-                authority: addressPluginAuthority(request.royaltyEnforcementConfig.authority ? publicKey(request.royaltyEnforcementConfig.authority) : request.signer.publicKey)
+                    }]
+                },
+                authority: authorityPlugin
             }
-        ] : undefined
+        ] : null
     });
     if (request.baseOptions.compute) {
         builder = addCompute(umi, builder, request.baseOptions.compute);
@@ -106,7 +112,7 @@ export async function createAsset(options: CreateAssetRequest): Promise<BaseResp
     const { keyPair, rpcUrl, env } = options;
     const { umi, signer } = createUmiWithSigner(keyPair, rpcUrl, env);
     const assetSigner = generateSigner(umi);
-    let builder = createV1(umi, {
+    let builder = createV2(umi, {
         asset: assetSigner,
         collection: options.collectionAddress ? publicKey(options.collectionAddress) : undefined,
         name: options.metadata.name,
