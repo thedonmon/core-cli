@@ -31,7 +31,6 @@ import { ShdwUploadOptions } from './shdwOptions';
     let storageAccountKey = options.storageAccount;
     const overwriteExistingFiles = options.overwriteExistingFiles;
     const concurrentUploads = options.concurrentUploads;
-
     /**
      * Ensures a storage account exists or creates one if needed
      * @returns {Promise<string>} The storage account public key

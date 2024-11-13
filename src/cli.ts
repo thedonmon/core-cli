@@ -230,11 +230,10 @@ programCommand('generateUploadConfig', { requireWallet: false })
     const uploadRequests: UploadRequest[] = await Promise.all(files.map(async (file) => {
       const filePath = path.join(folderPath, file);
       const fileTypeResult = await fileTypeFromFile(filePath);
-      const mimeType = fileTypeResult?.mime;
-      const fileType = mimeType || 'image/png';
+      const mimeType = fileTypeResult?.mime || (file.endsWith('.json') ? 'application/json' : 'image/png');
       return {
         filePath,
-        type: fileType,
+        type: mimeType,
         fileName: file,
       };
     }));

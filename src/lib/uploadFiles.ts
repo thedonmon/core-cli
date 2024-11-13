@@ -17,6 +17,13 @@ export async function bulkUploadFiles(config: UploaderOptions, files: UploadRequ
         error: string;
     }[]
 }> {
+    const controller = new AbortController();
+
+    process.on('SIGINT', () => {
+        console.log('\nCancelling upload...');
+        controller.abort();
+    });
+
     let { umi, signer, umiKeypair } = createUmiWithSigner(keyPair, rpcUrl, env);
     umi = await addUploader(umi, config, umiKeypair);
 
@@ -54,7 +61,7 @@ export async function bulkUploadFiles(config: UploaderOptions, files: UploadRequ
         } else if (file.filePath) {
             try {
                 const fileTypeResult = await fileTypeFromFile(file.filePath);
-                mimeType = fileTypeResult?.mime;
+                mimeType = fileTypeResult?.mime || (file.filePath.endsWith('.json') ? 'application/json' : 'application/octet-stream');
                 buffer = fs.readFileSync(file.filePath);
             } catch (error) {
                 console.error(`Error reading file from path ${file.filePath}:`, error);
@@ -75,13 +82,32 @@ export async function bulkUploadFiles(config: UploaderOptions, files: UploadRequ
         }
 
         const uint8Array = new Uint8Array(buffer);
-        const genericFile = createGenericFile(uint8Array, file.fileName);
+        const genericFile = createGenericFile(
+            uint8Array, 
+            file.fileName,
+            {
+                contentType: mimeType || 'application/octet-stream',
+                extension: file.fileName.split('.').pop() || '',
+                tags: [
+                    { name: 'Content-Type', value: mimeType || 'application/octet-stream' }
+                ]
+            }
+        );
         try {
-            const [uri] = await umi.uploader.upload([genericFile]);
+            const [uri] = await umi.uploader.upload([genericFile], {
+                signal: controller.signal,
+                onProgress: (progress) => {
+                    console.log(`Upload progress: ${progress}%`);
+                }
+            });
             console.log(`Uploaded file to URI: ${uri}`);
             uploadedUri = uri;
             if (!uploadedUri) throw new Error('Upload failed without a specific error.');
         } catch (error) {
+            if (error.name === 'AbortError') {
+                console.log('Upload was cancelled');
+                return;
+            }
             console.error(`Error uploading file:`, error);
             failed.push({
                 failedUri: file.fileUrl || file.filePath,
@@ -100,6 +126,8 @@ export async function bulkUploadFiles(config: UploaderOptions, files: UploadRequ
         const chunk = files.slice(i, i + chunkSize);
         await Promise.all(chunk.map(handleFileUpload));
     }
+
+    process.removeAllListeners('SIGINT');
 
     return { uploaded, failed };
 }
