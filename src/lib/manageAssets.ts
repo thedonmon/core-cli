@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as bs58 from 'bs58';
-import { createCollectionV2, ruleSet, BasePluginAuthority, createV2, addPlugin, updateV2, fetchAsset, updateCollectionV1 } from '@metaplex-foundation/mpl-core';
+import { createCollectionV2, ruleSet, BasePluginAuthority, createV2, addPlugin, updateV2, fetchAsset, updateCollection, fetchCollection, updatePlugin, CreatePluginArgs, UpdatePluginArgs, removePlugin, RemovePluginArgs, AddPluginArgs } from '@metaplex-foundation/mpl-core';
 import { createGenericFile, generateSigner, publicKey, Signer, Umi } from '@metaplex-foundation/umi';
 import { BaseRequest, CreateAssetRequest, CreateAssetUploadRequest, CreateCollectionRequest, CreateCollectionUploadRequest, UpdateAssetRequest } from '@/types/request';
 import { BaseResponse } from '@/types/response';
@@ -145,7 +145,23 @@ export async function updateAsset(options: UpdateAssetRequest): Promise<BaseResp
         newName: newName || asset.name,
         newUri: newUri || asset.uri,
         payer: signer,
-    });
+    })
+
+    if (options.plugins) {
+        for (const plugin of options.plugins) {
+            switch (plugin.method) {
+                case 'update':
+                    builder = builder.add(updatePlugin(umi, plugin.plugin as UpdatePluginArgs));
+                    break;
+                case 'remove':
+                    builder.add(removePlugin(umi, plugin.plugin as RemovePluginArgs));
+                    break;
+                case 'add':
+                    builder.add(addPlugin(umi, plugin.plugin as AddPluginArgs));
+                    break;
+            }
+        }
+    }
 
     if (options.compute) {
         builder = addCompute(umi, builder, options.compute);
@@ -159,19 +175,35 @@ export async function updateAsset(options: UpdateAssetRequest): Promise<BaseResp
     };
 }
 
-export async function updateCollection(options: UpdateAssetRequest): Promise<BaseResponse> {
+export async function updateCollectionData(options: UpdateAssetRequest): Promise<BaseResponse> {
     const { mint, keyPair, rpcUrl, env, newName, newUri } = options;
     const { umi, signer } = createUmiWithSigner(keyPair, rpcUrl, env);
-    const asset = await fetchAsset(umi, publicKey(mint));
+    const asset = await fetchCollection(umi, publicKey(mint));
     if (!asset) {
         throw new Error(`asset ${mint} not found`);
     }
-    let builder = updateCollectionV1(umi, {
+    let builder = updateCollection(umi, {
         collection: mint ? publicKey(mint) : undefined,
-        newName: newName || asset.name,
-        newUri: newUri || asset.uri,
+        name: newName || asset.name,
+        uri: newUri || asset.uri,
         payer: signer,
     });
+
+    if (options.plugins) {
+        for (const plugin of options.plugins) {
+            switch (plugin.method) {
+                case 'update':
+                    builder = builder.add(updatePlugin(umi, plugin.plugin as UpdatePluginArgs));
+                    break;
+                case 'remove':
+                    builder.add(removePlugin(umi, plugin.plugin as RemovePluginArgs));
+                    break;
+                case 'add':
+                    builder.add(addPlugin(umi, plugin.plugin as AddPluginArgs));
+                    break;
+            }
+        }
+    }
 
     if (options.compute) {
         builder = addCompute(umi, builder, options.compute);

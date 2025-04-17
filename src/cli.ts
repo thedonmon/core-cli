@@ -6,7 +6,7 @@ import * as path from 'path';
 import { loadWalletKey, writeToFile } from '@lib/helpers';
 import { CreateAssetRequest, CreateAssetUploadRequest, CreateCollectionRequest, CreateCollectionUploadRequest, UploadRequest } from './types/request';
 import { CollectionConfig } from './types/config';
-import { createAsset, createAssetUpload, createCollection, createCollectionUpload, updateAsset, updateCollection } from './lib/manageAssets';
+import { createAsset, createAssetUpload, createCollection, createCollectionUpload, updateAsset, updateCollectionData } from './lib/manageAssets';
 import { UploaderOptions } from './types/storage';
 import { bulkUploadFiles } from './lib/uploadFiles';
 import { fileTypeFromFile } from 'file-type';
@@ -243,7 +243,7 @@ programCommand('updateCollection', { requireWallet: true })
         units: opts.computeLimit,
       },
     };
-    const res = await oraPromise(updateCollection(updateCollectionRequest), {
+    const res = await oraPromise(updateCollectionData(updateCollectionRequest), {
       text: 'Updating collection...',
       spinner: 'dots',
       failText: (e) => error(`Failed to update collection: ${e}`),

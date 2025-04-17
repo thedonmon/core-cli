@@ -1,3 +1,4 @@
+import { AddPluginArgs, RemovePluginArgs, UpdatePluginArgs } from "@metaplex-foundation/mpl-core";
 import { RoyaltyEnforcementConfig } from "./config";
 import { BaseCompute } from "./models";
 
@@ -52,5 +53,9 @@ export type UpdateAssetRequest = {
     newUri?: string, 
     newCollection?: string,
     newCollectionSigner?: string | Uint8Array,
-    newAuthority?: string
+    newAuthority?: string,
+    plugins?: {
+        method: 'update' | 'add' | 'remove',
+        plugin: UpdatePluginArgs | AddPluginArgs | RemovePluginArgs
+    }[]
 } & BaseKeyRequest
