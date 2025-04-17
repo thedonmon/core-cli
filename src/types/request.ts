@@ -44,3 +44,13 @@ export type CreateAssetUploadRequest = {
     uploadRequest: UploadRequest;
     additionalUploads?: UploadRequest[];
 } & Omit<CreateAssetRequest, 'metadata'>;
+
+export type UpdateAssetRequest = {
+    mint: string,
+    collectionAddress?: string,
+    newName?: string,
+    newUri?: string, 
+    newCollection?: string,
+    newCollectionSigner?: string | Uint8Array,
+    newAuthority?: string
+} & BaseKeyRequest

@@ -1,8 +1,8 @@
 import * as fs from 'fs';
 import * as bs58 from 'bs58';
-import { createCollectionV2, ruleSet, BasePluginAuthority, createV2 } from '@metaplex-foundation/mpl-core';
+import { createCollectionV2, ruleSet, BasePluginAuthority, createV2, addPlugin, updateV2, fetchAsset, updateCollectionV1 } from '@metaplex-foundation/mpl-core';
 import { createGenericFile, generateSigner, publicKey, Signer, Umi } from '@metaplex-foundation/umi';
-import { BaseRequest, CreateAssetRequest, CreateAssetUploadRequest, CreateCollectionRequest, CreateCollectionUploadRequest } from '@/types/request';
+import { BaseRequest, CreateAssetRequest, CreateAssetUploadRequest, CreateCollectionRequest, CreateCollectionUploadRequest, UpdateAssetRequest } from '@/types/request';
 import { BaseResponse } from '@/types/response';
 import { addCompute, addUploader, createUmiWithSigner } from '@/lib/helpers';
 import { UploaderOptions } from '@/types/storage';
@@ -117,8 +117,8 @@ export async function createAsset(options: CreateAssetRequest): Promise<BaseResp
         collection: options.collectionAddress ? publicKey(options.collectionAddress) : undefined,
         name: options.metadata.name,
         uri: options.metadata.uri,
-        payer: signer
-    })
+        payer: signer,
+    });
 
     if (options.compute) {
         builder = addCompute(umi, builder, options.compute);
@@ -128,6 +128,59 @@ export async function createAsset(options: CreateAssetRequest): Promise<BaseResp
 
     return {
         address: assetSigner.publicKey.toString(),
+        signature: bs58.encode(res.signature)
+    };
+}
+
+export async function updateAsset(options: UpdateAssetRequest): Promise<BaseResponse> {
+    const { mint, keyPair, rpcUrl, env, newName, newUri, collectionAddress } = options;
+    const { umi, signer } = createUmiWithSigner(keyPair, rpcUrl, env);
+    const asset = await fetchAsset(umi, publicKey(mint));
+    if (!asset) {
+        throw new Error(`asset ${mint} not found`);
+    }
+    let builder = updateV2(umi, {
+        asset: publicKey(mint),
+        collection: collectionAddress ? publicKey(collectionAddress) : undefined,
+        newName: newName || asset.name,
+        newUri: newUri || asset.uri,
+        payer: signer,
+    });
+
+    if (options.compute) {
+        builder = addCompute(umi, builder, options.compute);
+    }
+
+    const res = await builder.sendAndConfirm(umi);
+
+    return {
+        address: mint,
+        signature: bs58.encode(res.signature)
+    };
+}
+
+export async function updateCollection(options: UpdateAssetRequest): Promise<BaseResponse> {
+    const { mint, keyPair, rpcUrl, env, newName, newUri } = options;
+    const { umi, signer } = createUmiWithSigner(keyPair, rpcUrl, env);
+    const asset = await fetchAsset(umi, publicKey(mint));
+    if (!asset) {
+        throw new Error(`asset ${mint} not found`);
+    }
+    let builder = updateCollectionV1(umi, {
+        collection: mint ? publicKey(mint) : undefined,
+        newName: newName || asset.name,
+        newUri: newUri || asset.uri,
+        payer: signer,
+    });
+
+    if (options.compute) {
+        builder = addCompute(umi, builder, options.compute);
+    }
+
+    const res = await builder.sendAndConfirm(umi);
+
+    return {
+        address: mint,
         signature: bs58.encode(res.signature)
     };
 }

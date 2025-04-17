@@ -6,7 +6,7 @@ import * as path from 'path';
 import { loadWalletKey, writeToFile } from '@lib/helpers';
 import { CreateAssetRequest, CreateAssetUploadRequest, CreateCollectionRequest, CreateCollectionUploadRequest, UploadRequest } from './types/request';
 import { CollectionConfig } from './types/config';
-import { createAsset, createAssetUpload, createCollection, createCollectionUpload } from './lib/manageAssets';
+import { createAsset, createAssetUpload, createCollection, createCollectionUpload, updateAsset, updateCollection } from './lib/manageAssets';
 import { UploaderOptions } from './types/storage';
 import { bulkUploadFiles } from './lib/uploadFiles';
 import { fileTypeFromFile } from 'file-type';
@@ -190,6 +190,68 @@ programCommand('createAsset', { requireWallet: true })
       });
     }
     return;
+  });
+
+programCommand('updateAsset', { requireWallet: true })
+  .description('Update an existing Asset')
+  .addOption(new Option('-m, --mint <string>', 'Asset mint address').makeOptionMandatory())
+  .addOption(new Option('-n, --name <string>', 'New asset name'))
+  .addOption(new Option('-ex, --externalUrl <string>', 'New external JSON URL with metadata'))
+  .addOption(new Option('-cc, --collection <string>', 'Collection address'))
+  .action(async (opts) => {
+    const keypair = loadWalletKey(opts.keypair);
+    const updateAssetRequest = {
+      mint: opts.mint,
+      keyPair: keypair.secretKey,
+      rpcUrl: opts.rpc,
+      env: opts.env,
+      newName: opts.name,
+      newUri: opts.externalUrl,
+      collectionAddress: opts.collection,
+      compute: {
+        price: opts.computePrice,
+        units: opts.computeLimit,
+      },
+    };
+    const res = await oraPromise(updateAsset(updateAssetRequest), {
+      text: 'Updating asset...',
+      spinner: 'dots',
+      failText: (e) => error(`Failed to update asset: ${e}`),
+      successText: success('Asset updated'),
+    });
+    writeToFile(res, `asset-update-${res.address}.json`, {
+      writeToFile: opts.log,
+    });
+  });
+
+programCommand('updateCollection', { requireWallet: true })
+  .description('Update an existing Collection')
+  .addOption(new Option('-m, --mint <string>', 'Collection mint address').makeOptionMandatory())
+  .addOption(new Option('-n, --name <string>', 'New collection name'))
+  .addOption(new Option('-ex, --externalUrl <string>', 'New external JSON URL with metadata'))
+  .action(async (opts) => {
+    const keypair = loadWalletKey(opts.keypair);
+    const updateCollectionRequest = {
+      mint: opts.mint,
+      keyPair: keypair.secretKey,
+      rpcUrl: opts.rpc,
+      env: opts.env,
+      newName: opts.name,
+      newUri: opts.externalUrl,
+      compute: {
+        price: opts.computePrice,
+        units: opts.computeLimit,
+      },
+    };
+    const res = await oraPromise(updateCollection(updateCollectionRequest), {
+      text: 'Updating collection...',
+      spinner: 'dots',
+      failText: (e) => error(`Failed to update collection: ${e}`),
+      successText: success('Collection updated'),
+    });
+    writeToFile(res, `collection-update-${res.address}.json`, {
+      writeToFile: opts.log,
+    });
   });
 
 programCommand('bulkUpload', { requireWallet: true })
